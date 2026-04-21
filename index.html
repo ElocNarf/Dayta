@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="Dayta"/>
+  <meta name="theme-color" content="#0d0c10"/>
+  <title>Dayta</title>
+
+  <!-- PWA icons - inline SVG favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230d0c10'/><text y='.9em' font-size='72' x='50%' dominant-baseline='middle' text-anchor='middle'>📊</text></svg>"/>
+
+  <!-- Apple touch icon: a simple canvas-generated icon -->
+  <style>
+    body { margin: 0; background: #0d0c10; }
+    #root { height: 100dvh; }
+  </style>
+
+  <!-- React + Babel from CDN -->
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+// ─── Storage ──────────────────────────────────────────────────────
+function load(key, fallback) {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+  catch { return fallback; }
+}
+function save(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+}
+
+// ─── Theme ────────────────────────────────────────────────────────
+const C = {
+  bg:"#0d0c10", s1:"#161420", s2:"#1e1b28", s3:"#252231",
+  border:"#2c2838", bh:"#3d3852",
+  gold:"#d4a853", goldD:"#d4a85322",
+  green:"#6dbb8a", greenD:"#6dbb8a1a",
+  blue:"#6aafd6", blueD:"#6aafd61a",
+  rose:"#d4707a", roseD:"#d4707a1a",
+  lav:"#9b8fd4", lavD:"#9b8fd41a",
+  peach:"#d49070", peachD:"#d4907022",
+  text:"#ede9f8", sub:"#9991b0", muted:"#5e5875",
+};
+
+const css = `
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Outfit:wght@300;400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{background:${C.bg};font-family:'Outfit',sans-serif;color:${C.text};overscroll-behavior:none;}
+::-webkit-scrollbar{width:0;}
+input,textarea,button,select{font-family:'Outfit',sans-serif;}
+textarea{resize:none;}
+.app{max-width:430px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column;}
+.hdr{padding:32px 20px 14px;display:flex;align-items:flex-start;justify-content:space-between;}
+.hdr-left{}
+.hdr-date{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:${C.muted};margin-bottom:3px;}
+.hdr-title{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:500;}
+.hdr-sub{font-size:12px;color:${C.sub};margin-top:4px;}
+.gear-btn{width:36px;height:36px;border-radius:10px;border:1px solid ${C.border};background:transparent;color:${C.sub};font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;margin-top:28px;flex-shrink:0;}
+.gear-btn:hover{border-color:${C.bh};color:${C.text};}
+.nav-wrap{padding:0 20px 12px;position:sticky;top:0;z-index:10;background:${C.bg};border-bottom:1px solid ${C.border};}
+.nav{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;}
+.nav::-webkit-scrollbar{display:none;}
+.nb{padding:6px 15px;border-radius:20px;border:1px solid ${C.border};background:transparent;color:${C.sub};font-size:11.5px;cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0;}
+.nb:hover{border-color:${C.bh};color:${C.text};}
+.nb.on{background:${C.gold};border-color:${C.gold};color:#0d0c10;font-weight:500;}
+.content{flex:1;padding:6px 20px 40px;overflow-y:auto;}
+.slabel{font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:${C.muted};margin:20px 0 9px;}
+.card{background:${C.s1};border:1px solid ${C.border};border-radius:14px;padding:15px;margin-bottom:9px;transition:border-color .15s;}
+.card:hover{border-color:${C.bh};}
+.rb{display:flex;align-items:center;justify-content:space-between;}
+.tag{display:inline-block;padding:3px 10px;border-radius:20px;font-size:10px;letter-spacing:.05em;font-weight:500;}
+.tg{background:${C.greenD};color:${C.green};}
+.tb{background:${C.blueD};color:${C.blue};}
+.tr{background:${C.roseD};color:${C.rose};}
+.tgo{background:${C.goldD};color:${C.gold};}
+.tlv{background:${C.lavD};color:${C.lav};}
+.prog{height:3px;background:${C.s3};border-radius:4px;margin-top:9px;overflow:hidden;}
+.progf{height:100%;border-radius:4px;transition:width .4s ease;}
+.cname{font-size:13.5px;font-weight:500;color:${C.text};}
+.cmeta{font-size:11px;color:${C.sub};margin-top:2px;}
+.inp{background:${C.s2};border:1px solid ${C.border};border-radius:10px;padding:10px 13px;color:${C.text};font-size:13px;outline:none;transition:border-color .15s;width:100%;}
+.inp:focus{border-color:${C.gold};}
+.inp::placeholder{color:${C.muted};}
+.tarea{width:100%;background:${C.s2};border:1px solid ${C.border};border-radius:10px;padding:10px 13px;color:${C.text};font-size:13px;outline:none;transition:border-color .15s;line-height:1.5;}
+.tarea:focus{border-color:${C.gold};}
+.tarea::placeholder{color:${C.muted};}
+.abtn{padding:10px 15px;border-radius:10px;border:none;background:${C.gold};color:#0d0c10;font-size:13px;font-weight:500;cursor:pointer;transition:opacity .15s;white-space:nowrap;}
+.abtn:hover{opacity:.85;}
+.abtn.full{width:100%;}
+.ibtn{padding:5px 11px;border-radius:7px;border:1px solid ${C.border};background:transparent;color:${C.sub};font-size:11px;cursor:pointer;transition:all .15s;}
+.ibtn:hover{border-color:${C.bh};color:${C.text};}
+.ibtn.del:hover{border-color:${C.rose};color:${C.rose};}
+.ibtn.edit:hover{border-color:${C.gold};color:${C.gold};}
+.add-row{display:flex;gap:8px;margin-top:10px;}
+.form-card{background:${C.s2};border:1px solid ${C.bh};border-radius:14px;padding:15px;margin-bottom:10px;}
+.flabel{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:${C.muted};margin-bottom:5px;display:block;}
+.sel{width:100%;background:${C.s1};border:1px solid ${C.border};border-radius:8px;padding:9px 12px;color:${C.text};font-size:13px;outline:none;appearance:none;cursor:pointer;}
+.sel:focus{border-color:${C.gold};}
+.sel option{background:${C.s1};}
+.hint{font-size:11px;color:${C.muted};margin-top:10px;line-height:1.6;}
+.gap8{display:flex;gap:8px;}
+.gap8>*{flex:1;}
+.step-item{display:flex;align-items:flex-start;gap:10px;padding:6px 0;cursor:pointer;}
+.chk{width:16px;height:16px;border-radius:4px;border:1px solid ${C.border};display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;transition:all .15s;}
+.chk.done{background:${C.green};border-color:${C.green};}
+.stext{font-size:12.5px;color:${C.sub};line-height:1.45;flex:1;}
+.stext.done{text-decoration:line-through;opacity:.45;}
+.ctr-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid ${C.border};}
+.ctr-row:last-child{border-bottom:none;padding-bottom:0;}
+.ctr-btn{width:30px;height:30px;border-radius:8px;border:1px solid ${C.border};background:${C.s2};color:${C.text};font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.ctr-btn:hover{border-color:${C.gold};color:${C.gold};}
+.ctr-val{font-family:'Cormorant Garamond',serif;font-size:26px;color:${C.gold};min-width:36px;text-align:center;}
+.tag-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+.tag-pill{padding:5px 13px;border-radius:20px;border:1px solid ${C.border};background:transparent;color:${C.sub};font-size:11px;cursor:pointer;transition:all .15s;}
+.tag-pill:hover{border-color:${C.bh};color:${C.text};}
+.tag-pill.sel{background:${C.lavD};border-color:${C.lav};color:${C.lav};}
+.idea-entry{padding:12px 0;border-bottom:1px solid ${C.border};}
+.idea-entry:last-child{border-bottom:none;}
+.plant-row{display:flex;align-items:center;gap:13px;padding:10px 0;border-bottom:1px solid ${C.border};}
+.plant-row:last-child{border-bottom:none;}
+.urg{border-left:2px solid ${C.rose};padding-left:10px;}
+.water-btn{padding:6px 12px;border-radius:8px;border:1px solid ${C.blue};background:${C.blueD};color:${C.blue};font-size:11px;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.water-btn:hover{background:${C.blue};color:#0d0c10;}
+.jentry{padding:13px 0;border-bottom:1px solid ${C.border};}
+.jentry:last-child{border-bottom:none;}
+.jentry-date{font-size:10px;letter-spacing:.1em;color:${C.gold};margin-bottom:5px;text-transform:uppercase;}
+.hchip{padding:3px 10px;border-radius:20px;background:${C.s2};border:1px solid ${C.border};font-size:11px;color:${C.sub};}
+.stars-row{display:flex;gap:4px;}
+.star{font-size:20px;cursor:pointer;transition:opacity .15s;background:none;border:none;padding:0;}
+.rest-entry{padding:13px 0;border-bottom:1px solid ${C.border};}
+.rest-entry:last-child{border-bottom:none;}
+.album-card{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid ${C.border};align-items:flex-start;}
+.album-card:last-child{border-bottom:none;}
+.album-art{width:60px;height:60px;border-radius:8px;background:${C.s3};flex-shrink:0;object-fit:cover;border:1px solid ${C.border};}
+.album-art-ph{width:60px;height:60px;border-radius:8px;background:${C.s3};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px;border:1px solid ${C.border};}
+.overview-mini{background:${C.s1};border:1px solid ${C.border};border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:border-color .15s;}
+.overview-mini:hover{border-color:${C.bh};}
+.ov-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.ov-title{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:${C.muted};}
+.ov-count{font-family:'Cormorant Garamond',serif;font-size:20px;}
+.ov-line{font-size:12px;color:${C.sub};line-height:1.45;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ov-line+.ov-line{margin-top:3px;}
+.modal-overlay{position:fixed;inset:0;background:rgba(13,12,16,.88);z-index:100;display:flex;flex-direction:column;justify-content:flex-end;}
+.modal{background:${C.s1};border-top:1px solid ${C.border};border-radius:20px 20px 0 0;padding:20px 20px 40px;max-height:82dvh;overflow-y:auto;}
+.modal-title{font-family:'Cormorant Garamond',serif;font-size:22px;margin-bottom:4px;}
+.week-dot{height:28px;width:28px;border-radius:6px;border:1px solid ${C.border};cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;font-size:10px;color:${C.muted};}
+.week-dot.done{background:${C.green};border-color:${C.green};color:#0d0c10;font-weight:500;}
+.week-dot:hover{border-color:${C.green};}
+.month-label{font-size:10px;color:${C.gold};letter-spacing:.08em;text-transform:uppercase;margin:14px 0 8px;}
+.day-sq{width:32px;height:32px;border-radius:6px;background:${C.greenD};border:1px solid ${C.green};display:flex;align-items:center;justify-content:center;font-size:11px;color:${C.green};font-weight:500;}
+.filter-bar{background:${C.s2};border:1px solid ${C.border};border-radius:12px;padding:12px;margin-bottom:12px;}
+.filter-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+.filter-row:last-child{margin-bottom:0;}
+.filter-label{font-size:11px;color:${C.muted};width:64px;flex-shrink:0;}
+.dots-btn{width:28px;height:28px;border-radius:7px;border:1px solid ${C.border};background:transparent;color:${C.sub};font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;letter-spacing:1px;transition:all .15s;}
+.dots-btn:hover{border-color:${C.gold};color:${C.gold};}
+.historic-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid ${C.border};}
+.historic-row:last-child{border-bottom:none;}
+/* Settings */
+.settings-page{flex:1;padding:20px;overflow-y:auto;}
+.settings-title{font-family:'Cormorant Garamond',serif;font-size:22px;margin-bottom:4px;}
+.settings-sub{font-size:12px;color:${C.sub};margin-bottom:20px;}
+.tab-row{display:flex;align-items:center;gap:10px;padding:11px 12px;background:${C.s1};border:1px solid ${C.border};border-radius:10px;margin-bottom:7px;transition:border-color .15s;}
+.tab-row.dragging{opacity:.4;}
+.tab-row.drag-over{border-color:${C.gold};}
+.drag-handle{color:${C.muted};font-size:14px;cursor:grab;padding:0 4px;user-select:none;}
+.drag-handle:active{cursor:grabbing;}
+.tab-row-name{flex:1;font-size:13px;color:${C.text};}
+.toggle{width:40px;height:22px;border-radius:11px;border:none;cursor:pointer;transition:background .2s;position:relative;flex-shrink:0;}
+.toggle.on{background:${C.gold};}
+.toggle.off{background:${C.s3};}
+.toggle::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:white;top:3px;transition:left .2s;}
+.toggle.on::after{left:21px;}
+.toggle.off::after{left:3px;}
+`;
+
+const ALL_TABS = ["Overview","Projects","Counters","Ideas","Plants","Journal","Habits","Health","Restaurants","Music"];
+const TODAY = new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
+const TODAY_SHORT = new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"});
+function starsStr(n){return"★".repeat(n)+"☆".repeat(5-n);}
+function daysUntil(last,interval){return interval-last;}
+const DAY_LABELS=["Su","Mo","Tu","We","Th","Fr","Sa"];
+const MOOD_EMOJI={Great:"😄",Good:"🙂",Okay:"😐",Low:"😔",Bad:"😞"};
+const ENERGY_EMOJI={High:"⚡",Medium:"🔋",Low:"🪫"};
+const DEFAULT_TAGS=["💡 Idea","🛠 Project","🌱 Life","📚 Learn","✈️ Travel","🎨 Creative","💰 Money"];
+
+const MONTHS_SHORT=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function App(){
+  const [ready,setReady]=useState(false);
+  const [tab,setTab]=useState("Overview");
+  const [showSettings,setShowSettings]=useState(false);
+  const [tabOrder,setTabOrder]=useState(ALL_TABS);
+  const [tabEnabled,setTabEnabled]=useState(Object.fromEntries(ALL_TABS.map(t=>[t,true])));
+  const [projects,setProjects]=useState([]);
+  const [counters,setCounters]=useState([]);
+  const [ideas,setIdeas]=useState([]);
+  const [ideaTags,setIdeaTags]=useState(DEFAULT_TAGS);
+  const [plants,setPlants]=useState([]);
+  const [journal,setJournal]=useState([]);
+  const [habits,setHabits]=useState([]);
+  const [health,setHealth]=useState([]);
+  const [restaurants,setRestaurants]=useState([]);
+  const [music,setMusic]=useState([]);
+
+  useEffect(()=>{
+    const p=load("dos:projects",[
+      {id:1,title:"Home Studio Setup",tag:"active",steps:[{t:"Order acoustic panels",done:true},{t:"Configure audio interface",done:true},{t:"Cable management",done:false},{t:"Test recording setup",done:false}]},
+      {id:2,title:"Learn Rust",tag:"ongoing",steps:[{t:"Finish Chapter 4",done:false},{t:"Build CLI tool",done:false}]},
+    ]);
+    const c=load("dos:counters",[
+      {id:1,name:"Books read this year",val:4,goal:12},
+      {id:2,name:"Morning walks",val:9,goal:30},
+      {id:3,name:"Glasses of water today",val:5,goal:8},
+    ]);
+    const i=load("dos:ideas",[
+      {id:1,text:"Build e-ink habit board with Raspberry Pi",tag:"🛠 Project",date:"Apr 18"},
+      {id:2,text:"Ferment hot sauce from garden peppers",tag:"🌱 Life",date:"Apr 15"},
+    ]);
+    const it=load("dos:ideaTags",DEFAULT_TAGS);
+    const pl=load("dos:plants",[
+      {id:1,name:"Monstera",emoji:"🌿",room:"Living Room",lastWatered:1,intervalDays:7},
+      {id:2,name:"Snake Plant",emoji:"🪴",room:"Bedroom",lastWatered:6,intervalDays:14},
+      {id:3,name:"Pothos",emoji:"🍃",room:"Kitchen",lastWatered:2,intervalDays:5},
+      {id:4,name:"Cactus Trio",emoji:"🌵",room:"Office",lastWatered:12,intervalDays:21},
+    ]);
+    const j=load("dos:journal",[{id:1,text:"Spent the morning reorganizing the studio. Finally feels workable.",date:"Apr 18"}]);
+    const h=load("dos:habits",[
+      {id:1,name:"Morning walk",history:[]},
+      {id:2,name:"Read 20 min",history:[]},
+      {id:3,name:"No phone before 8am",history:[]},
+    ]);
+    const he=load("dos:health",[
+      {id:1,date:"Apr 19",sleep:"7.5h",mood:"Good",energy:"High",note:"Felt focused after the walk."},
+      {id:2,date:"Apr 18",sleep:"6h",mood:"Okay",energy:"Medium",note:""},
+    ]);
+    const r=load("dos:restaurants",[
+      {id:1,name:"Hen of the Wood",location:"Burlington, VT",cuisine:"New American",rating:5,items:[{name:"Mushroom Toast",rating:10},{name:"Duck Confit",rating:9}],note:"Great wine list.",date:"Mar 22",dateObj:{month:2,year:2026}},
+      {id:2,name:"Pizzeria Verita",location:"Burlington, VT",cuisine:"Pizza",rating:4,items:[],note:"Best pizza in the city.",date:"Feb 14",dateObj:{month:1,year:2026}},
+    ]);
+    const m=load("dos:music",[
+      {id:1,album:"In Rainbows",artist:"Radiohead",released:"Oct 2007",relMonth:9,relYear:2007,rating:5,art:null},
+      {id:2,album:"Blonde",artist:"Frank Ocean",released:"Aug 2016",relMonth:7,relYear:2016,rating:5,art:null},
+    ]);
+    const to=load("dos:tabOrder",ALL_TABS);
+    const te=load("dos:tabEnabled",Object.fromEntries(ALL_TABS.map(t=>[t,true])));
+    setProjects(p);setCounters(c);setIdeas(i);setIdeaTags(it);setPlants(pl);
+    setJournal(j);setHabits(h);setHealth(he);setRestaurants(r);setMusic(m);
+    const mergedOrder=[...to.filter(t=>ALL_TABS.includes(t)),...ALL_TABS.filter(t=>!to.includes(t))];
+    const mergedEnabled={...Object.fromEntries(ALL_TABS.map(t=>[t,true])),...te};
+    setTabOrder(mergedOrder);setTabEnabled(mergedEnabled);
+    setReady(true);
+  },[]);
+
+  useEffect(()=>{if(ready)save("dos:projects",projects);},[projects,ready]);
+  useEffect(()=>{if(ready)save("dos:counters",counters);},[counters,ready]);
+  useEffect(()=>{if(ready)save("dos:ideas",ideas);},[ideas,ready]);
+  useEffect(()=>{if(ready)save("dos:ideaTags",ideaTags);},[ideaTags,ready]);
+  useEffect(()=>{if(ready)save("dos:plants",plants);},[plants,ready]);
+  useEffect(()=>{if(ready)save("dos:journal",journal);},[journal,ready]);
+  useEffect(()=>{if(ready)save("dos:habits",habits);},[habits,ready]);
+  useEffect(()=>{if(ready)save("dos:health",health);},[health,ready]);
+  useEffect(()=>{if(ready)save("dos:restaurants",restaurants);},[restaurants,ready]);
+  useEffect(()=>{if(ready)save("dos:music",music);},[music,ready]);
+  useEffect(()=>{if(ready)save("dos:tabOrder",tabOrder);},[tabOrder,ready]);
+  useEffect(()=>{if(ready)save("dos:tabEnabled",tabEnabled);},[tabEnabled,ready]);
+
+  if(!ready)return(<><style>{css}</style><div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100dvh",color:C.muted,fontSize:13}}>Loading…</div></>);
+
+  const visibleTabs=tabOrder.filter(t=>tabEnabled[t]);
+  const urgentPlants=plants.filter(p=>daysUntil(p.lastWatered,p.intervalDays)<=1);
+  const sub=urgentPlants.length>0?`🌱 ${urgentPlants.length} plant${urgentPlants.length>1?"s":""} need water`:"Your daily data in one place";
+
+  // ensure current tab is still visible
+  const safeTab=visibleTabs.includes(tab)?tab:visibleTabs[0]||"Overview";
+
+  return(
+    <><style>{css}</style>
+    <div className="app">
+      {showSettings?(
+        <Settings tabOrder={tabOrder} setTabOrder={setTabOrder} tabEnabled={tabEnabled} setTabEnabled={setTabEnabled} onClose={()=>setShowSettings(false)}/>
+      ):(
+        <>
+          <div className="hdr">
+            <div className="hdr-left">
+              <div className="hdr-date">{TODAY}</div>
+              <div className="hdr-title">Dayta</div>
+              <div className="hdr-sub">{sub}</div>
+            </div>
+            <button className="gear-btn" onClick={()=>setShowSettings(true)}>⚙</button>
+          </div>
+          <div className="nav-wrap">
+            <div className="nav">
+              {visibleTabs.map(t=>(
+                <button key={t} className={`nb${safeTab===t?" on":""}`} onClick={()=>setTab(t)}>{t}</button>
+              ))}
+            </div>
+          </div>
+          <div className="content">
+            {safeTab==="Overview"    &&<Overview projects={projects} ideas={ideas} counters={counters} plants={plants} habits={habits} health={health} journal={journal} music={music} restaurants={restaurants} urgentPlants={urgentPlants} waterPlant={id=>setPlants(ps=>ps.map(p=>p.id!==id?p:{...p,lastWatered:0}))} setTab={setTab} visibleTabs={visibleTabs}/>}
+            {safeTab==="Projects"    &&<Projects projects={projects} setProjects={setProjects}/>}
+            {safeTab==="Counters"    &&<Counters counters={counters} setCounters={setCounters}/>}
+            {safeTab==="Ideas"       &&<Ideas ideas={ideas} setIdeas={setIdeas} tags={ideaTags} setTags={setIdeaTags}/>}
+            {safeTab==="Plants"      &&<Plants plants={plants} setPlants={setPlants}/>}
+            {safeTab==="Journal"     &&<Journal journal={journal} setJournal={setJournal}/>}
+            {safeTab==="Habits"      &&<HabitsTab habits={habits} setHabits={setHabits}/>}
+            {safeTab==="Health"      &&<Health health={health} setHealth={setHealth}/>}
+            {safeTab==="Restaurants" &&<Restaurants restaurants={restaurants} setRestaurants={setRestaurants}/>}
+            {safeTab==="Music"       &&<Music music={music} setMusic={setMusic}/>}
+          </div>
+        </>
+      )}
+    </div></>
+  );
+}
+
+// ─── SETTINGS ─────────────────────────────────────────────────────
+function Settings({tabOrder,setTabOrder,tabEnabled,setTabEnabled,onClose}){
+  const dragIdx=useRef(null);
+  const [dragOver,setDragOver]=useState(null);
+
+  function onDragStart(i){dragIdx.current=i;}
+  function onDragOver(e,i){e.preventDefault();setDragOver(i);}
+  function onDrop(i){
+    if(dragIdx.current===null||dragIdx.current===i)return;
+    const arr=[...tabOrder];
+    const [moved]=arr.splice(dragIdx.current,1);
+    arr.splice(i,0,moved);
+    setTabOrder(arr);dragIdx.current=null;setDragOver(null);
+  }
+  function onDragEnd(){dragIdx.current=null;setDragOver(null);}
+
+  // touch drag state
+  const touchStart=useRef(null);
+  function onTouchStart(e,i){touchStart.current={i,y:e.touches[0].clientY};}
+  function onTouchMove(e){e.preventDefault();}
+  function onTouchEnd(e,i){touchStart.current=null;}
+
+  function moveUp(i){
+    if(i===0)return;
+    const arr=[...tabOrder];[arr[i-1],arr[i]]=[arr[i],arr[i-1]];setTabOrder(arr);
+  }
+  function moveDown(i){
+    if(i===tabOrder.length-1)return;
+    const arr=[...tabOrder];[arr[i],arr[i+1]]=[arr[i+1],arr[i]];setTabOrder(arr);
+  }
+
+  return(
+    <div style={{display:"flex",flexDirection:"column",flex:1}}>
+      <div style={{padding:"32px 20px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,fontWeight:500}}>Settings</div>
+          <div style={{fontSize:12,color:C.sub,marginTop:3}}>Manage tabs & order</div>
+        </div>
+        <button className="abtn" style={{padding:"8px 16px"}} onClick={onClose}>Done</button>
+      </div>
+      <div style={{padding:"0 20px 8px",flex:1,overflowY:"auto"}}>
+        <div className="slabel">Tab visibility & order</div>
+        <div style={{fontSize:11,color:C.muted,marginBottom:12,lineHeight:1.6}}>Drag to reorder · Toggle to show/hide · Hiding a tab keeps all its data</div>
+        {tabOrder.map((t,i)=>(
+          <div
+            key={t}
+            className={`tab-row${dragOver===i?" drag-over":""}`}
+            draggable
+            onDragStart={()=>onDragStart(i)}
+            onDragOver={e=>onDragOver(e,i)}
+            onDrop={()=>onDrop(i)}
+            onDragEnd={onDragEnd}
+          >
+            <span className="drag-handle">⠿</span>
+            <span className="tab-row-name">{t}</span>
+            {t!=="Overview"&&(
+              <>
+                <button className="ibtn" style={{padding:"3px 8px",fontSize:12}} onClick={()=>moveUp(i)}>↑</button>
+                <button className="ibtn" style={{padding:"3px 8px",fontSize:12}} onClick={()=>moveDown(i)}>↓</button>
+              </>
+            )}
+            <button
+              className={`toggle ${t==="Overview"?("on"):(tabEnabled[t]?"on":"off")}`}
+              disabled={t==="Overview"}
+              onClick={()=>{if(t!=="Overview")setTabEnabled(prev=>({...prev,[t]:!prev[t]}));}}
+              title={t==="Overview"?"Overview is always visible":""}
+            />
+          </div>
+        ))}
+        <div className="hint">💡 Overview is always visible. Tap ↑ ↓ or drag rows to reorder tabs in the navigation bar.</div>
+      </div>
+    </div>
+  );
+}
+
+// ─── OVERVIEW ─────────────────────────────────────────────────────
+function Overview({projects,ideas,counters,plants,habits,health,journal,music,restaurants,urgentPlants,waterPlant,setTab,visibleTabs}){
+  const todayKey=new Date().toISOString().split("T")[0];
+  const active=projects.filter(p=>p.tag==="active"||p.tag==="ongoing");
+  const habitsToday=habits.filter(h=>h.history.includes(todayKey));
+
+  const Sec=({label,count,color,lines,tab})=>{
+    if(!visibleTabs.includes(tab))return null;
+    return(
+      <div className="overview-mini" style={{borderLeft:`2px solid ${color}`}} onClick={()=>setTab(tab)}>
+        <div className="ov-head">
+          <span className="ov-title">{label}</span>
+          <span className="ov-count" style={{color}}>{count}</span>
+        </div>
+        {lines.map((l,i)=><div key={i} className="ov-line">{l}</div>)}
+      </div>
+    );
+  };
+
+  return(
+    <>
+      <div className="slabel">Today's pulse</div>
+      {urgentPlants.length>0&&(
+        <div className="card" style={{borderLeft:`2px solid ${C.rose}`,marginBottom:8}}>
+          {urgentPlants.map(p=>(
+            <div key={p.id} style={{display:"flex",alignItems:"center",gap:12,padding:"6px 0"}}>
+              <span style={{fontSize:22}}>{p.emoji}</span>
+              <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500}}>{p.name}</div><div style={{fontSize:11,color:C.rose}}>Needs water</div></div>
+              <button className="water-btn" onClick={()=>waterPlant(p.id)}>Watered ✓</button>
+            </div>
+          ))}
+        </div>
+      )}
+      <Sec label="Projects" count={active.length} color={C.green} tab="Projects" lines={active.slice(0,2).map(p=>`${p.title} — ${p.steps.filter(s=>s.done).length}/${p.steps.length} steps`)}/>
+      <Sec label="Counters" count={counters.length} color={C.gold} tab="Counters" lines={counters.slice(0,2).map(c=>c.goal?`${c.name}: ${c.val}/${c.goal}`:`${c.name}: ${c.val}`)}/>
+      <Sec label="Ideas" count={ideas.length} color={C.lav} tab="Ideas" lines={ideas.slice(0,2).map(i=>`${i.tag} · ${i.text.slice(0,42)}${i.text.length>42?"…":""}`)}/>
+      <Sec label="Plants" count={plants.length} color={C.blue} tab="Plants" lines={plants.slice(0,2).map(p=>{const d=daysUntil(p.lastWatered,p.intervalDays);return`${p.emoji} ${p.name} — ${d<=0?"overdue":d===1?"water today":`water in ${d}d`}`;})}/>
+      <Sec label="Habits" count={`${habitsToday.length}/${habits.length}`} color={C.green} tab="Habits" lines={habits.slice(0,3).map(h=>`${h.history.includes(todayKey)?"✓":"○"} ${h.name}`)}/>
+      <Sec label="Journal" count={journal.length} color={C.peach} tab="Journal" lines={journal.slice(0,1).map(j=>`${j.date} — ${j.text.slice(0,50)}${j.text.length>50?"…":""}`)}/>
+      <Sec label="Health" count={health.length} color={C.rose} tab="Health" lines={health.slice(0,1).map(h=>`${h.date} · ${MOOD_EMOJI[h.mood]||""} ${h.mood} · ${ENERGY_EMOJI[h.energy]||""} ${h.energy}`)}/>
+      <Sec label="Restaurants" count={restaurants.length} color={C.peach} tab="Restaurants" lines={restaurants.slice(0,2).map(r=>`${"★".repeat(r.rating)} ${r.name}`)}/>
+      <Sec label="Music" count={music.length} color={C.gold} tab="Music" lines={music.slice(0,2).map(m=>`${"★".repeat(m.rating)} ${m.album} — ${m.artist}`)}/>
+    </>
+  );
+}
+
+// ─── PROJECTS ─────────────────────────────────────────────────────
+function Projects({projects,setProjects}){
+  const [newTitle,setNewTitle]=useState("");
+  const [newStep,setNewStep]=useState({});
+  const [editStep,setEditStep]=useState(null);
+  const [showDone,setShowDone]=useState({});
+  function addProject(){if(!newTitle.trim())return;setProjects(prev=>[...prev,{id:Date.now(),title:newTitle.trim(),tag:"planning",steps:[]}]);setNewTitle("");}
+  function toggleStep(pid,si){setProjects(ps=>ps.map(p=>p.id!==pid?p:{...p,steps:p.steps.map((s,i)=>i===si?{...s,done:!s.done}:s)}));}
+  function addStep(pid){const t=(newStep[pid]||"").trim();if(!t)return;setProjects(ps=>ps.map(p=>p.id!==pid?p:{...p,steps:[...p.steps,{t,done:false}]}));setNewStep(prev=>({...prev,[pid]:""}));}
+  function saveEditStep(){if(!editStep||!editStep.val.trim())return;setProjects(ps=>ps.map(p=>p.id!==editStep.pid?p:{...p,steps:p.steps.map((s,i)=>i===editStep.idx?{...s,t:editStep.val}:s)}));setEditStep(null);}
+  function deleteStep(pid,si){setProjects(ps=>ps.map(p=>p.id!==pid?p:{...p,steps:p.steps.filter((_,i)=>i!==si)}));}
+  function deleteProject(id){setProjects(ps=>ps.filter(p=>p.id!==id));}
+  function cycleTag(pid){const tags=["planning","active","ongoing","done"];setProjects(ps=>ps.map(p=>p.id!==pid?p:{...p,tag:tags[(tags.indexOf(p.tag)+1)%tags.length]}));}
+  const tagCls=t=>({active:"tg",ongoing:"tb",planning:"tgo",done:"tlv"}[t]||"tgo");
+  return(
+    <>
+      <div className="slabel">Your projects</div>
+      {projects.map(p=>{
+        const doneS=p.steps.filter(s=>s.done);
+        const pct=p.steps.length?Math.round(doneS.length/p.steps.length*100):0;
+        const hideDone=!showDone[p.id];
+        const visible=hideDone?p.steps.filter(s=>!s.done):p.steps;
+        return(
+          <div key={p.id} className="card">
+            <div className="rb">
+              <div className="cname">{p.title}</div>
+              <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                <span className={`tag ${tagCls(p.tag)}`} onClick={()=>cycleTag(p.id)} style={{cursor:"pointer"}}>{p.tag}</span>
+                <button className="ibtn del" onClick={()=>deleteProject(p.id)}>✕</button>
+              </div>
+            </div>
+            {p.steps.length>0&&(
+              <>
+                <div style={{marginTop:8}}>
+                  {visible.map((s,vi)=>{
+                    const realIdx=p.steps.indexOf(s);
+                    return editStep&&editStep.pid===p.id&&editStep.idx===realIdx?(
+                      <div key={realIdx} style={{display:"flex",gap:8,padding:"6px 0"}}>
+                        <input className="inp" style={{fontSize:12,padding:"4px 8px"}} value={editStep.val} onChange={e=>setEditStep({...editStep,val:e.target.value})} onKeyDown={e=>{if(e.key==="Enter")saveEditStep();if(e.key==="Escape")setEditStep(null);}} autoFocus/>
+                        <button className="ibtn edit" onClick={saveEditStep}>Save</button>
+                      </div>
+                    ):(
+                      <div key={realIdx} className="step-item">
+                        <div className={`chk${s.done?" done":""}`} onClick={()=>toggleStep(p.id,realIdx)}>{s.done&&<span style={{fontSize:9,color:"#0d0c10"}}>✓</span>}</div>
+                        <span className={`stext${s.done?" done":""}`} onClick={()=>toggleStep(p.id,realIdx)}>{s.t}</span>
+                        <button className="ibtn edit" style={{padding:"2px 7px",flexShrink:0}} onClick={()=>setEditStep({pid:p.id,idx:realIdx,val:s.t})}>Edit</button>
+                        <button className="ibtn del" style={{padding:"2px 7px",flexShrink:0}} onClick={()=>deleteStep(p.id,realIdx)}>✕</button>
+                      </div>
+                    );
+                  })}
+                </div>
+                {doneS.length>0&&<button className="ibtn" style={{marginTop:8,fontSize:10}} onClick={()=>setShowDone(prev=>({...prev,[p.id]:!prev[p.id]}))}>
+                  {hideDone?`Show ${doneS.length} completed`:"Hide completed"}
+                </button>}
+                <div className="prog"><div className="progf" style={{width:`${pct}%`,background:C.gold}}/></div>
+                <div className="cmeta" style={{marginTop:5}}>{pct}% complete</div>
+              </>
+            )}
+            <div className="add-row">
+              <input className="inp" placeholder="Add a step…" value={newStep[p.id]||""} onChange={e=>setNewStep(prev=>({...prev,[p.id]:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&addStep(p.id)}/>
+              <button className="abtn" onClick={()=>addStep(p.id)}>+</button>
+            </div>
+          </div>
+        );
+      })}
+      <div className="add-row">
+        <input className="inp" placeholder="New project…" value={newTitle} onChange={e=>setNewTitle(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addProject()}/>
+        <button className="abtn" onClick={addProject}>Add</button>
+      </div>
+      <div className="hint">💡 Tap a status tag to cycle: planning → active → ongoing → done.</div>
+    </>
+  );
+}
+
+// ─── COUNTERS ─────────────────────────────────────────────────────
+function Counters({counters,setCounters}){
+  const [name,setName]=useState("");
+  const [goal,setGoal]=useState("");
+  const [dotMenu,setDotMenu]=useState(null); // counter id
+  const [editingId,setEditingId]=useState(null);
+  const [editName,setEditName]=useState("");
+  const [editGoal,setEditGoal]=useState("");
+
+  function adjust(id,d){setCounters(cs=>cs.map(c=>c.id!==id?c:{...c,val:Math.max(0,c.val+d)}));}
+  function del(id){setCounters(cs=>cs.filter(c=>c.id!==id));setDotMenu(null);}
+  function add(){
+    if(!name.trim())return;
+    setCounters(prev=>[...prev,{id:Date.now(),name:name.trim(),val:0,goal:goal?parseInt(goal):null}]);
+    setName("");setGoal("");
+  }
+  function startEdit(c){setEditingId(c.id);setEditName(c.name);setEditGoal(c.goal?String(c.goal):"");setDotMenu(null);}
+  function saveEdit(){
+    setCounters(cs=>cs.map(c=>c.id!==editingId?c:{...c,name:editName.trim()||c.name,goal:editGoal?parseInt(editGoal):null}));
+    setEditingId(null);
+  }
+
+  const active=counters.filter(c=>!c.goal||Math.round(c.val/c.goal*100)<100);
+  const historic=counters.filter(c=>c.goal&&Math.round(c.val/c.goal*100)>=100);
+
+  return(
+    <>
+      <div className="slabel">Progress counters</div>
+      {active.length>0&&(
+        <div className="card">
+          {active.map(c=>{
+            const pct=c.goal?Math.min(100,Math.round(c.val/c.goal*100)):0;
+            return(
+              <div key={c.id} className="ctr-row">
+                <div style={{flex:1,minWidth:0,paddingRight:8}}>
+                  {editingId===c.id?(
+                    <>
+                      <input className="inp" style={{marginBottom:6}} value={editName} onChange={e=>setEditName(e.target.value)} placeholder="Counter name"/>
+                      <input className="inp" type="number" value={editGoal} onChange={e=>setEditGoal(e.target.value)} placeholder="Goal (optional)"/>
+                      <div style={{display:"flex",gap:6,marginTop:6}}>
+                        <button className="abtn" style={{flex:1,padding:"7px"}} onClick={saveEdit}>Save</button>
+                        <button className="ibtn" onClick={()=>setEditingId(null)}>Cancel</button>
+                      </div>
+                    </>
+                  ):(
+                    <>
+                      <div style={{fontSize:13,color:C.text}}>{c.name}</div>
+                      {c.goal&&<><div className="prog" style={{marginTop:5}}><div className="progf" style={{width:`${pct}%`,background:pct>=100?C.green:C.gold}}/></div><div style={{fontSize:10,color:C.muted,marginTop:3}}>Goal: {c.goal} · {pct}%</div></>}
+                    </>
+                  )}
+                </div>
+                {editingId!==c.id&&(
+                  <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0,position:"relative"}}>
+                    <button className="ctr-btn" onClick={()=>adjust(c.id,-1)}>−</button>
+                    <span className="ctr-val">{c.val}</span>
+                    <button className="ctr-btn" onClick={()=>adjust(c.id,1)}>+</button>
+                    <button className="dots-btn" onClick={()=>setDotMenu(dotMenu===c.id?null:c.id)}>···</button>
+                    {dotMenu===c.id&&(
+                      <div style={{position:"absolute",right:0,top:36,background:C.s2,border:`1px solid ${C.border}`,borderRadius:10,padding:6,zIndex:20,minWidth:120}}>
+                        <button onClick={()=>startEdit(c)} style={{display:"block",width:"100%",padding:"8px 12px",background:"none",border:"none",color:C.text,fontSize:12,textAlign:"left",cursor:"pointer",borderRadius:6}}>Edit</button>
+                        <button onClick={()=>del(c.id)} style={{display:"block",width:"100%",padding:"8px 12px",background:"none",border:"none",color:C.rose,fontSize:12,textAlign:"left",cursor:"pointer",borderRadius:6}}>Delete</button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="slabel">Add counter</div>
+      <div className="form-card">
+        <label className="flabel">Name</label>
+        <input className="inp" style={{marginBottom:8}} placeholder="e.g. Cups of coffee this week" value={name} onChange={e=>setName(e.target.value)}/>
+        <label className="flabel">Goal (optional)</label>
+        <input className="inp" style={{marginBottom:10}} placeholder="e.g. 20" type="number" value={goal} onChange={e=>setGoal(e.target.value)}/>
+        <button className="abtn full" onClick={add}>Add Counter</button>
+      </div>
+
+      {historic.length>0&&(
+        <>
+          <div className="slabel">Historic counts</div>
+          <div className="card">
+            {historic.map(c=>(
+              <div key={c.id} className="historic-row">
+                <div>
+                  <div style={{fontSize:13,color:C.text}}>{c.name}</div>
+                  <div style={{fontSize:11,color:C.green,marginTop:2}}>✓ {c.val}/{c.goal} completed</div>
+                </div>
+                <button className="ibtn del" onClick={()=>del(c.id)}>✕</button>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+// ─── IDEAS ────────────────────────────────────────────────────────
+function Ideas({ideas,setIdeas,tags,setTags}){
+  const [text,setText]=useState("");
+  const [selTag,setSelTag]=useState(tags[0]||"");
+  const [filter,setFilter]=useState("All");
+  const [newTag,setNewTag]=useState("");
+  const [editId,setEditId]=useState(null);
+  const [editText,setEditText]=useState("");
+  function add(){if(!text.trim())return;setIdeas(prev=>[{id:Date.now(),text:text.trim(),tag:selTag,date:TODAY_SHORT},...prev]);setText("");}
+  function addTag(){if(!newTag.trim()||tags.includes(newTag.trim()))return;setTags(prev=>[...prev,newTag.trim()]);setNewTag("");}
+  function startEdit(i){setEditId(i.id);setEditText(i.text);}
+  function saveEdit(){if(!editText.trim())return;setIdeas(prev=>prev.map(i=>i.id!==editId?i:{...i,text:editText.trim()}));setEditId(null);}
+  function del(id){setIdeas(prev=>prev.filter(i=>i.id!==id));}
+  const filtered=filter==="All"?ideas:ideas.filter(i=>i.tag===filter);
+  return(
+    <>
+      <div className="slabel">Capture an idea</div>
+      <div className="form-card">
+        <textarea className="tarea" rows={3} placeholder="What's on your mind…" value={text} onChange={e=>setText(e.target.value)}/>
+        <div className="tag-bar" style={{marginTop:10}}>{tags.map(t=><button key={t} className={`tag-pill${selTag===t?" sel":""}`} onClick={()=>setSelTag(t)}>{t}</button>)}</div>
+        <button className="abtn full" style={{marginTop:6}} onClick={add}>Save Idea</button>
+      </div>
+      <div className="slabel">Filter</div>
+      <div className="tag-bar">{["All",...tags].map(t=><button key={t} className={`tag-pill${filter===t?" sel":""}`} onClick={()=>setFilter(t)}>{t}</button>)}</div>
+      <div className="add-row">
+        <input className="inp" placeholder="Add a tag (e.g. 🎵 Music)" value={newTag} onChange={e=>setNewTag(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addTag()}/>
+        <button className="abtn" onClick={addTag}>+ Tag</button>
+      </div>
+      {filtered.length>0&&(
+        <>
+          <div className="slabel">{filter==="All"?"All ideas":filter} ({filtered.length})</div>
+          <div className="card">
+            {filtered.map(i=>(
+              <div key={i.id} className="idea-entry">
+                {editId===i.id?(
+                  <><textarea className="tarea" rows={3} value={editText} onChange={e=>setEditText(e.target.value)} autoFocus/>
+                  <div style={{display:"flex",gap:6,marginTop:8}}><button className="abtn" style={{flex:1,padding:"7px"}} onClick={saveEdit}>Save</button><button className="ibtn" onClick={()=>setEditId(null)}>Cancel</button></div></>
+                ):(
+                  <>
+                    <div style={{fontSize:13,color:C.text,lineHeight:1.55}}>{i.text}</div>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:6}}>
+                      <div style={{display:"flex",gap:6,alignItems:"center"}}><span className="tag tlv">{i.tag}</span><span style={{fontSize:10,color:C.muted}}>{i.date}</span></div>
+                      <div style={{display:"flex",gap:5}}><button className="ibtn edit" onClick={()=>startEdit(i)}>Edit</button><button className="ibtn del" onClick={()=>del(i.id)}>✕</button></div>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+// ─── PLANTS ───────────────────────────────────────────────────────
+function Plants({plants,setPlants}){
+  const [name,setName]=useState("");
+  const [emoji,setEmoji]=useState("🌿");
+  const [room,setRoom]=useState("");
+  const [interval,setPi]=useState("7");
+  function water(id){setPlants(ps=>ps.map(p=>p.id!==id?p:{...p,lastWatered:0}));}
+  function del(id){setPlants(ps=>ps.filter(p=>p.id!==id));}
+  function add(){if(!name.trim())return;setPlants(prev=>[...prev,{id:Date.now(),name:name.trim(),emoji:emoji||"🌿",room:room.trim()||"Other",lastWatered:0,intervalDays:parseInt(interval)||7}]);setName("");setEmoji("🌿");setRoom("");setPi("7");}
+  const rooms=[...new Set(plants.map(p=>p.room||"Other"))];
+  return(
+    <>
+      {rooms.map(r=>(
+        <div key={r}>
+          <div className="slabel">{r}</div>
+          <div className="card">
+            {plants.filter(p=>(p.room||"Other")===r).map(p=>{
+              const due=daysUntil(p.lastWatered,p.intervalDays);const over=due<=0;const soon=due===1;
+              return(
+                <div key={p.id} className={`plant-row${over||soon?" urg":""}`}>
+                  <span style={{fontSize:24,flexShrink:0}}>{p.emoji}</span>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,fontWeight:500}}>{p.name}</div>
+                    <div style={{fontSize:11,color:over?C.rose:soon?C.gold:C.sub,marginTop:2}}>{over?`Overdue by ${Math.abs(due)}d`:soon?"Water today":`Water in ${due}d`}</div>
+                    <div style={{fontSize:10,color:C.muted}}>Every {p.intervalDays}d</div>
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:5,alignItems:"flex-end"}}>
+                    <button className="water-btn" onClick={()=>water(p.id)}>Watered ✓</button>
+                    <button className="ibtn del" style={{fontSize:10}} onClick={()=>del(p.id)}>Remove</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+      <div className="slabel">Add a plant</div>
+      <div className="form-card">
+        <div className="gap8" style={{marginBottom:8}}>
+          <input className="inp" style={{maxWidth:64,flex:"0 0 64px"}} placeholder="🪴" value={emoji} onChange={e=>setEmoji(e.target.value)}/>
+          <input className="inp" placeholder="Plant name" value={name} onChange={e=>setName(e.target.value)}/>
+        </div>
+        <input className="inp" style={{marginBottom:8}} placeholder="Room (e.g. Living Room)" value={room} onChange={e=>setRoom(e.target.value)}/>
+        <label className="flabel">Water every (days)</label>
+        <input className="inp" style={{marginBottom:10}} type="number" value={interval} onChange={e=>setPi(e.target.value)}/>
+        <button className="abtn full" onClick={add}>Add Plant</button>
+      </div>
+      <div className="hint">💡 Type any emoji in the emoji field — on iPhone the emoji keyboard appears automatically.</div>
+    </>
+  );
+}
+
+// ─── JOURNAL ──────────────────────────────────────────────────────
+function Journal({journal,setJournal}){
+  const [text,setText]=useState("");
+  const [editId,setEditId]=useState(null);
+  const [editText,setEditText]=useState("");
+  function save(){if(!text.trim())return;setJournal(prev=>[{id:Date.now(),text:text.trim(),date:TODAY_SHORT},...prev]);setText("");}
+  function startEdit(j){setEditId(j.id);setEditText(j.text);}
+  function saveEdit(){if(!editText.trim())return;setJournal(prev=>prev.map(j=>j.id!==editId?j:{...j,text:editText.trim()}));setEditId(null);}
+  function del(id){setJournal(prev=>prev.filter(j=>j.id!==id));}
+  return(
+    <>
+      <div className="slabel">New entry</div>
+      <div className="form-card">
+        <textarea className="tarea" rows={5} placeholder="Write freely — what happened today, what you noticed, what's on your mind…" value={text} onChange={e=>setText(e.target.value)}/>
+        <button className="abtn full" style={{marginTop:10}} onClick={save}>Save Entry</button>
+      </div>
+      {journal.length>0&&(
+        <><div className="slabel">Past entries</div>
+        <div className="card">
+          {journal.map(j=>(
+            <div key={j.id} className="jentry">
+              <div className="jentry-date">{j.date}</div>
+              {editId===j.id?(
+                <><textarea className="tarea" rows={4} value={editText} onChange={e=>setEditText(e.target.value)} autoFocus/>
+                <div style={{display:"flex",gap:6,marginTop:8}}><button className="abtn" style={{flex:1,padding:"7px"}} onClick={saveEdit}>Save</button><button className="ibtn" onClick={()=>setEditId(null)}>Cancel</button></div></>
+              ):(
+                <><div style={{fontSize:13,color:C.text,lineHeight:1.6}}>{j.text}</div>
+                <div style={{display:"flex",gap:6,marginTop:8,justifyContent:"flex-end"}}>
+                  <button className="ibtn edit" onClick={()=>startEdit(j)}>Edit</button>
+                  <button className="ibtn del" onClick={()=>del(j.id)}>Delete</button>
+                </div></>
+              )}
+            </div>
+          ))}
+        </div></>
+      )}
+    </>
+  );
+}
+
+
+// ─── HABITS ───────────────────────────────────────────────────────
+function HabitsTab({habits,setHabits}){
+  const [name,setName]=useState("");
+  const [detail,setDetail]=useState(null);
+
+  function getWeekKeys(){
+    const now=new Date();const day=now.getDay();
+    return Array.from({length:7},(_,i)=>{const d=new Date(now);d.setDate(now.getDate()-day+i);return d.toISOString().split("T")[0];});
+  }
+  const weekKeys=getWeekKeys();
+
+  function toggleDay(id,key){
+    setHabits(hs=>hs.map(h=>{if(h.id!==id)return h;const hist=h.history.includes(key)?h.history.filter(k=>k!==key):[...h.history,key];return{...h,history:hist};}));
+  }
+  function addHabit(){if(!name.trim())return;setHabits(prev=>[...prev,{id:Date.now(),name:name.trim(),history:[]}]);setName("");}
+  function delHabit(id){setHabits(hs=>hs.filter(h=>h.id!==id));setDetail(null);}
+
+  function getMonthGroups(history){
+    const sorted=[...history].sort((a,b)=>b.localeCompare(a));
+    const groups={};
+    sorted.forEach(k=>{
+      const parts=k.split("-");
+      const y=parseInt(parts[0]);const mo=parseInt(parts[1])-1;const d=parseInt(parts[2]);
+      const label=new Date(y,mo,1).toLocaleDateString("en-US",{month:"long",year:"numeric"});
+      if(!groups[label])groups[label]=[];
+      groups[label].push({key:k,day:d});
+    });
+    return groups;
+  }
+
+  // Snapshot at render time — prevents crash when deleting from inside modal
+  const detailHabit=habits.find(h=>h.id===detail)||null;
+
+  return(
+    <>
+      {detail!==null&&detailHabit!==null&&(
+        <div className="modal-overlay" onClick={()=>setDetail(null)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <div className="rb" style={{marginBottom:8}}>
+              <div className="modal-title">{detailHabit.name}</div>
+              <div style={{display:"flex",gap:8}}>
+                <button className="ibtn del" onClick={()=>delHabit(detailHabit.id)}>Delete</button>
+                <button className="ibtn" onClick={()=>setDetail(null)}>Close</button>
+              </div>
+            </div>
+            <div style={{fontSize:11,color:C.sub,marginBottom:16}}>{detailHabit.history.length} total completions</div>
+            {detailHabit.history.length>0
+              ? Object.entries(getMonthGroups(detailHabit.history)).map(([month,days])=>(
+                  <div key={month}>
+                    <div className="month-label">{month}</div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                      {days.map(({key,day})=>(
+                        <div key={key} className="day-sq">{day}</div>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              : <div style={{fontSize:13,color:C.muted}}>No completions yet. Tap a day in the weekly grid to log one.</div>
+            }
+          </div>
+        </div>
+      )}
+
+      <div className="slabel">This week</div>
+      <div className="card">
+        <div style={{display:"grid",gridTemplateColumns:"1fr repeat(7, 30px)",gap:5,alignItems:"center",marginBottom:10,paddingBottom:8,borderBottom:`1px solid ${C.border}`}}>
+          <div style={{fontSize:10,color:C.muted}}>Habit</div>
+          {DAY_LABELS.map((d,i)=><div key={i} style={{fontSize:9,color:i===new Date().getDay()?C.gold:C.muted,textAlign:"center",fontWeight:i===new Date().getDay()?500:"normal"}}>{d}</div>)}
+        </div>
+        {habits.map(h=>(
+          <div key={h.id} style={{display:"grid",gridTemplateColumns:"1fr repeat(7, 30px)",gap:5,alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${C.border}`}}>
+            <div style={{cursor:"pointer",paddingRight:4}} onClick={()=>setDetail(h.id)}>
+              <div style={{fontSize:12.5,color:C.text}}>{h.name}</div>
+            </div>
+            {weekKeys.map(k=>(
+              <div key={k} className={`week-dot${h.history.includes(k)?" done":""}`} onClick={()=>toggleDay(h.id,k)}>
+                {parseInt(k.split("-")[2],10)}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className="add-row">
+        <input className="inp" placeholder="New habit…" value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addHabit()}/>
+        <button className="abtn" onClick={addHabit}>Add</button>
+      </div>
+      <div className="hint">Tap a habit name to view completions & delete.</div>
+    </>
+  );
+}
+
+// ─── HEALTH ───────────────────────────────────────────────────────
+function Health({health,setHealth}){
+  const [sleep,setSleep]=useState("");
+  const [mood,setMood]=useState("Good");
+  const [energy,setEnergy]=useState("Medium");
+  const [note,setNote]=useState("");
+  const [editId,setEditId]=useState(null);
+  const [editNote,setEditNote]=useState("");
+  function log(){setHealth(prev=>[{id:Date.now(),date:TODAY_SHORT,sleep,mood,energy,note},...prev]);setSleep("");setMood("Good");setEnergy("Medium");setNote("");}
+  function del(id){setHealth(prev=>prev.filter(h=>h.id!==id));}
+  function saveEdit(id){setHealth(prev=>prev.map(h=>h.id!==id?h:{...h,note:editNote}));setEditId(null);}
+  return(
+    <>
+      <div className="slabel">Log today</div>
+      <div className="form-card">
+        <div className="gap8" style={{marginBottom:8}}>
+          <div><label className="flabel">Sleep</label><input className="inp" placeholder="7.5h" value={sleep} onChange={e=>setSleep(e.target.value)}/></div>
+          <div><label className="flabel">Mood</label><select className="sel" value={mood} onChange={e=>setMood(e.target.value)}>{["Great","Good","Okay","Low","Bad"].map(m=><option key={m}>{m}</option>)}</select></div>
+        </div>
+        <label className="flabel">Energy</label>
+        <select className="sel" style={{marginBottom:8}} value={energy} onChange={e=>setEnergy(e.target.value)}>{["High","Medium","Low"].map(e=><option key={e}>{e}</option>)}</select>
+        <label className="flabel">Notes (optional)</label>
+        <textarea className="tarea" rows={2} placeholder="Anything to note…" value={note} onChange={e=>setNote(e.target.value)}/>
+        <button className="abtn full" style={{marginTop:10}} onClick={log}>Log Entry</button>
+      </div>
+      {health.length>0&&(
+        <><div className="slabel">Recent logs</div>
+        <div className="card">
+          {health.map(h=>(
+            <div key={h.id} style={{padding:"12px 0",borderBottom:`1px solid ${C.border}`}}>
+              <div style={{fontSize:10,color:C.muted,marginBottom:5}}>{h.date}</div>
+              <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:h.note||editId===h.id?6:0}}>
+                {h.sleep&&<span className="hchip">😴 {h.sleep}</span>}
+                <span className="hchip">{MOOD_EMOJI[h.mood]||"🙂"} {h.mood}</span>
+                <span className="hchip">{ENERGY_EMOJI[h.energy]||"🔋"} {h.energy}</span>
+              </div>
+              {editId===h.id?(
+                <><textarea className="tarea" rows={2} value={editNote} onChange={e=>setEditNote(e.target.value)} autoFocus/>
+                <div style={{display:"flex",gap:6,marginTop:6}}><button className="abtn" style={{flex:1,padding:"7px"}} onClick={()=>saveEdit(h.id)}>Save</button><button className="ibtn" onClick={()=>setEditId(null)}>Cancel</button></div></>
+              ):(h.note&&<div style={{fontSize:12,color:C.sub,lineHeight:1.5}}>{h.note}</div>)}
+              <div style={{display:"flex",gap:6,marginTop:6,justifyContent:"flex-end"}}>
+                <button className="ibtn edit" onClick={()=>{setEditId(h.id);setEditNote(h.note||"");}}>Edit Note</button>
+                <button className="ibtn del" onClick={()=>del(h.id)}>Delete</button>
+              </div>
+            </div>
+          ))}
+        </div></>
+      )}
+    </>
+  );
+}
+
+// ─── RESTAURANTS ──────────────────────────────────────────────────
+function Restaurants({restaurants,setRestaurants}){
+  const [name,setName]=useState("");
+  const [loc,setLoc]=useState("");
+  const [cuisine,setCuisine]=useState("");
+  const [rating,setRating]=useState(4);
+  const [items,setItems]=useState([]);
+  const [itemName,setItemName]=useState("");
+  const [itemRating,setItemRating]=useState(8);
+  const [note,setNote]=useState("");
+  const [visitMonth,setVisitMonth]=useState(new Date().getMonth());
+  const [visitYear,setVisitYear]=useState(new Date().getFullYear());
+  const [filters,setFilters]=useState({cuisine:"All",rating:"All",month:"All",year:"All"});
+  const [editId,setEditId]=useState(null);
+  const [editData,setEditData]=useState({});
+
+  function addItem(){if(!itemName.trim())return;setItems(prev=>[...prev,{name:itemName.trim(),rating:itemRating}]);setItemName("");setItemRating(8);}
+  function add(){
+    if(!name.trim())return;
+    setRestaurants(prev=>[{id:Date.now(),name:name.trim(),location:loc,cuisine,rating,items:[...items],note,date:`${MONTHS_SHORT[visitMonth]} ${visitYear}`,dateObj:{month:visitMonth,year:visitYear}},...prev]);
+    setName("");setLoc("");setCuisine("");setRating(4);setItems([]);setNote("");
+  }
+  function del(id){setRestaurants(prev=>prev.filter(r=>r.id!==id));}
+  function startEdit(r){setEditId(r.id);setEditData({name:r.name,location:r.location,cuisine:r.cuisine,rating:r.rating,note:r.note,items:r.items||[]});}
+  function saveEdit(){
+    setRestaurants(prev=>prev.map(r=>r.id!==editId?r:{...r,...editData}));
+    setEditId(null);
+  }
+
+  // Build filter options
+  const cuisines=["All",...[...new Set(restaurants.map(r=>r.cuisine).filter(Boolean))]];
+  const years=["All",...[...new Set(restaurants.map(r=>r.dateObj?.year).filter(Boolean))].sort((a,b)=>b-a).map(String)];
+  const ratingOpts=["All","5 ★","4 ★","3 ★","2 ★","1 ★"];
+  const monthOpts=["All",...MONTHS_SHORT];
+
+  let filtered=[...restaurants];
+  if(filters.cuisine!=="All")filtered=filtered.filter(r=>r.cuisine===filters.cuisine);
+  if(filters.rating!=="All")filtered=filtered.filter(r=>r.rating===parseInt(filters.rating.charAt(0)));
+  if(filters.month!=="All")filtered=filtered.filter(r=>r.dateObj&&MONTHS_SHORT[r.dateObj.month]===filters.month);
+  if(filters.year!=="All")filtered=filtered.filter(r=>r.dateObj&&String(r.dateObj.year)===filters.year);
+
+  const FSelect=({label,val,opts,field})=>(
+    <div className="filter-row">
+      <span className="filter-label">{label}</span>
+      <select className="sel" style={{flex:1}} value={val} onChange={e=>setFilters(prev=>({...prev,[field]:e.target.value}))}>
+        {opts.map(o=><option key={o}>{o}</option>)}
+      </select>
+    </div>
+  );
+
+  const currentYear=new Date().getFullYear();
+  const yearOpts=Array.from({length:10},(_,i)=>currentYear-i);
+
+  return(
+    <>
+      <div className="slabel">Log a restaurant</div>
+      <div className="form-card">
+        <input className="inp" style={{marginBottom:8}} placeholder="Restaurant name" value={name} onChange={e=>setName(e.target.value)}/>
+        <div className="gap8" style={{marginBottom:8}}>
+          <input className="inp" placeholder="Location" value={loc} onChange={e=>setLoc(e.target.value)}/>
+          <input className="inp" placeholder="Cuisine" value={cuisine} onChange={e=>setCuisine(e.target.value)}/>
+        </div>
+        <div className="gap8" style={{marginBottom:10}}>
+          <div><label className="flabel">Month visited</label>
+            <select className="sel" value={visitMonth} onChange={e=>setVisitMonth(parseInt(e.target.value))}>
+              {MONTHS_SHORT.map((m,i)=><option key={m} value={i}>{m}</option>)}
+            </select>
+          </div>
+          <div><label className="flabel">Year</label>
+            <select className="sel" value={visitYear} onChange={e=>setVisitYear(parseInt(e.target.value))}>
+              {yearOpts.map(y=><option key={y}>{y}</option>)}
+            </select>
+          </div>
+        </div>
+        <label className="flabel">Overall rating</label>
+        <div className="stars-row" style={{marginBottom:10}}>
+          {[1,2,3,4,5].map(n=><button key={n} className="star" onClick={()=>setRating(n)} style={{opacity:n<=rating?1:.25}}>★</button>)}
+        </div>
+        <label className="flabel">Items ordered</label>
+        {items.map((it,i)=>(
+          <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:`1px solid ${C.border}`}}>
+            <div style={{flex:1,fontSize:13,color:C.text}}>{it.name}</div>
+            <div style={{fontSize:12,color:C.gold}}>{it.rating}/10</div>
+            <button className="ibtn del" style={{padding:"2px 7px"}} onClick={()=>setItems(prev=>prev.filter((_,idx)=>idx!==i))}>✕</button>
+          </div>
+        ))}
+        <div style={{display:"flex",gap:6,marginTop:8,marginBottom:10}}>
+          <input className="inp" style={{flex:1}} placeholder="Dish name" value={itemName} onChange={e=>setItemName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addItem()}/>
+          <select className="sel" style={{width:72,flex:"0 0 72px"}} value={itemRating} onChange={e=>setItemRating(parseInt(e.target.value))}>
+            {[10,9,8,7,6,5,4,3,2,1].map(n=><option key={n} value={n}>{n}/10</option>)}
+          </select>
+          <button className="abtn" style={{padding:"10px 12px"}} onClick={addItem}>+</button>
+        </div>
+        <label className="flabel">Notes</label>
+        <textarea className="tarea" rows={2} placeholder="Vibe, highlights, would you return?" value={note} onChange={e=>setNote(e.target.value)}/>
+        <button className="abtn full" style={{marginTop:10}} onClick={add}>Save Restaurant</button>
+      </div>
+
+      <div className="slabel">Filter</div>
+      <div className="filter-bar">
+        <FSelect label="Cuisine" val={filters.cuisine} opts={cuisines} field="cuisine"/>
+        <FSelect label="Rating" val={filters.rating} opts={ratingOpts} field="rating"/>
+        <FSelect label="Month" val={filters.month} opts={monthOpts} field="month"/>
+        <FSelect label="Year" val={filters.year} opts={years} field="year"/>
+      </div>
+
+      {filtered.length>0&&(
+        <><div className="slabel">Journal ({filtered.length})</div>
+        <div className="card">
+          {filtered.map(r=>(
+            <div key={r.id} className="rest-entry">
+              {editId===r.id?(
+                <div>
+                  <input className="inp" style={{marginBottom:8}} value={editData.name} onChange={e=>setEditData(d=>({...d,name:e.target.value}))} placeholder="Name"/>
+                  <div className="gap8" style={{marginBottom:8}}>
+                    <input className="inp" value={editData.location} onChange={e=>setEditData(d=>({...d,location:e.target.value}))} placeholder="Location"/>
+                    <input className="inp" value={editData.cuisine} onChange={e=>setEditData(d=>({...d,cuisine:e.target.value}))} placeholder="Cuisine"/>
+                  </div>
+                  <div className="stars-row" style={{marginBottom:8}}>
+                    {[1,2,3,4,5].map(n=><button key={n} className="star" onClick={()=>setEditData(d=>({...d,rating:n}))} style={{opacity:n<=editData.rating?1:.25}}>★</button>)}
+                  </div>
+                  <textarea className="tarea" rows={2} value={editData.note} onChange={e=>setEditData(d=>({...d,note:e.target.value}))} placeholder="Notes"/>
+                  <div style={{display:"flex",gap:6,marginTop:8}}>
+                    <button className="abtn" style={{flex:1,padding:"7px"}} onClick={saveEdit}>Save</button>
+                    <button className="ibtn" onClick={()=>setEditId(null)}>Cancel</button>
+                  </div>
+                </div>
+              ):(
+                <>
+                  <div className="rb">
+                    <div style={{fontSize:14,fontWeight:500,color:C.text}}>{r.name}</div>
+                    <div style={{display:"flex",gap:5}}>
+                      <button className="ibtn edit" onClick={()=>startEdit(r)}>Edit</button>
+                      <button className="ibtn del" onClick={()=>del(r.id)}>✕</button>
+                    </div>
+                  </div>
+                  <div style={{fontSize:11,color:C.sub,marginTop:3}}>{[r.location,r.cuisine].filter(Boolean).join(" · ")} · {r.date}</div>
+                  <div style={{color:C.gold,fontSize:14,letterSpacing:1,marginTop:4}}>{starsStr(r.rating)}</div>
+                  {r.items&&r.items.length>0&&(
+                    <div style={{marginTop:7}}>
+                      {r.items.map((it,i)=>(
+                        <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12,color:C.sub,padding:"3px 0",borderBottom:`1px solid ${C.border}`}}>
+                          <span>{it.name}</span><span style={{color:C.gold}}>{it.rating}/10</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {r.note&&<div style={{fontSize:12.5,color:C.sub,marginTop:7,lineHeight:1.5}}>{r.note}</div>}
+                </>
+              )}
+            </div>
+          ))}
+        </div></>
+      )}
+    </>
+  );
+}
+
+// ─── MUSIC ────────────────────────────────────────────────────────
+function Music({music,setMusic}){
+  const [album,setAlbum]=useState("");
+  const [artist,setArtist]=useState("");
+  const [relMonth,setRelMonth]=useState(0);
+  const [relYear,setRelYear]=useState(new Date().getFullYear());
+  const [rating,setRating]=useState(4);
+  const [artCache,setArtCache]=useState({});
+  const [filters,setFilters]=useState({rating:"All",month:"All",year:"All"});
+
+  async function fetchArt(albumName,artistName){
+    const key=`${artistName}__${albumName}`;
+    if(artCache[key]!==undefined)return;
+    try{
+      const q=encodeURIComponent(`${artistName} ${albumName}`);
+      const res=await fetch(`https://itunes.apple.com/search?term=${q}&entity=album&limit=1`);
+      const data=await res.json();
+      const url=data.results?.[0]?.artworkUrl100?.replace("100x100","400x400")||null;
+      setArtCache(prev=>({...prev,[key]:url}));
+    }catch{setArtCache(prev=>({...prev,[key]:null}));}
+  }
+
+  useEffect(()=>{music.forEach(m=>{const key=`${m.artist}__${m.album}`;if(artCache[key]===undefined)fetchArt(m.album,m.artist);});},[music]);
+
+  function add(){
+    if(!album.trim()||!artist.trim())return;
+    const released=`${MONTHS_SHORT[relMonth]} ${relYear}`;
+    setMusic(prev=>[{id:Date.now(),album:album.trim(),artist:artist.trim(),released,relMonth,relYear,rating,art:null},...prev]);
+    fetchArt(album,artist);
+    setAlbum("");setArtist("");setRating(4);
+  }
+  function del(id){setMusic(prev=>prev.filter(m=>m.id!==id));}
+
+  // Dynamic filter options
+  const years=["All",...[...new Set(music.map(m=>m.relYear).filter(Boolean))].sort((a,b)=>b-a).map(String)];
+  const ratingOpts=["All","★★★★★","★★★★","★★★","★★","★"];
+  const monthOpts=["All",...MONTHS_SHORT];
+
+  let filtered=[...music];
+  if(filters.rating!=="All")filtered=filtered.filter(m=>m.rating===(6-ratingOpts.indexOf(filters.rating)));
+  if(filters.month!=="All")filtered=filtered.filter(m=>MONTHS_SHORT[m.relMonth]===filters.month);
+  if(filters.year!=="All")filtered=filtered.filter(m=>String(m.relYear)===filters.year);
+
+  const FSelect=({label,val,opts,field})=>(
+    <div className="filter-row">
+      <span className="filter-label">{label}</span>
+      <select className="sel" style={{flex:1}} value={val} onChange={e=>setFilters(prev=>({...prev,[field]:e.target.value}))}>
+        {opts.map(o=><option key={o}>{o}</option>)}
+      </select>
+    </div>
+  );
+
+  const currentYear=new Date().getFullYear();
+  const yearOpts=Array.from({length:80},(_,i)=>currentYear-i);
+
+  return(
+    <>
+      <div className="slabel">Add an album</div>
+      <div className="form-card">
+        <input className="inp" style={{marginBottom:8}} placeholder="Album name" value={album} onChange={e=>setAlbum(e.target.value)}/>
+        <input className="inp" style={{marginBottom:8}} placeholder="Artist" value={artist} onChange={e=>setArtist(e.target.value)}/>
+        <div className="gap8" style={{marginBottom:10}}>
+          <div><label className="flabel">Release month</label>
+            <select className="sel" value={relMonth} onChange={e=>setRelMonth(parseInt(e.target.value))}>
+              {MONTHS_SHORT.map((m,i)=><option key={m} value={i}>{m}</option>)}
+            </select>
+          </div>
+          <div><label className="flabel">Year</label>
+            <select className="sel" value={relYear} onChange={e=>setRelYear(parseInt(e.target.value))}>
+              {yearOpts.map(y=><option key={y}>{y}</option>)}
+            </select>
+          </div>
+        </div>
+        <label className="flabel">Your rating</label>
+        <div className="stars-row" style={{marginBottom:12}}>
+          {[1,2,3,4,5].map(n=><button key={n} className="star" onClick={()=>setRating(n)} style={{opacity:n<=rating?1:.2,fontSize:26}}>★</button>)}
+        </div>
+        <button className="abtn full" onClick={add}>Add Album</button>
+      </div>
+
+      <div className="slabel">Filter</div>
+      <div className="filter-bar">
+        <FSelect label="Rating" val={filters.rating} opts={ratingOpts} field="rating"/>
+        <FSelect label="Month" val={filters.month} opts={monthOpts} field="month"/>
+        <FSelect label="Year" val={filters.year} opts={yearOpts.map(String)} field="year"/>
+      </div>
+
+      {filtered.length>0&&(
+        <><div className="slabel">Collection ({filtered.length})</div>
+        <div className="card">
+          {filtered.map(m=>{
+            const artKey=`${m.artist}__${m.album}`;
+            const artUrl=m.art||artCache[artKey];
+            return(
+              <div key={m.id} className="album-card">
+                {artUrl?<img src={artUrl} alt={m.album} className="album-art"/>:<div className="album-art-ph">🎵</div>}
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:14,fontWeight:500,color:C.text,lineHeight:1.3}}>{m.album}</div>
+                  <div style={{fontSize:12,color:C.sub,marginTop:2}}>{m.artist}</div>
+                  {m.released&&<div style={{fontSize:11,color:C.muted,marginTop:2}}>{m.released}</div>}
+                  <div style={{color:C.gold,fontSize:13,letterSpacing:.5,marginTop:4}}>{starsStr(m.rating)}</div>
+                </div>
+                <button className="ibtn del" style={{alignSelf:"flex-start",flexShrink:0}} onClick={()=>del(m.id)}>✕</button>
+              </div>
+            );
+          })}
+        </div></>
+      )}
+      <div className="hint">💡 Album art loads automatically from iTunes. Month/Year dropdowns populate dynamically as you add albums.</div>
+    </>
+  );
+}
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(React.createElement(App));
+  </script>
+</body>
+</html>
