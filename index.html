@@ -58,7 +58,7 @@ html,body{background:${C.bg};font-family:'Outfit',sans-serif;color:${C.text};ove
 input,textarea,button,select{font-family:'Outfit',sans-serif;}
 textarea{resize:none;}
 .app{max-width:430px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column;}
-.hdr{padding:32px 20px 14px;display:flex;align-items:flex-start;justify-content:space-between;}
+.hdr{padding:56px 20px 14px;display:flex;align-items:flex-start;justify-content:space-between;}
 .hdr-left{}
 .hdr-date{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:${C.muted};margin-bottom:3px;}
 .hdr-title{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:500;}
@@ -394,7 +394,7 @@ function Settings({tabOrder,setTabOrder,tabEnabled,setTabEnabled,onClose}){
 
   return(
     <div style={{display:"flex",flexDirection:"column",flex:1}}>
-      <div style={{padding:"32px 20px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+      <div style={{padding:"56px 20px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <div>
           <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,fontWeight:500}}>Settings</div>
           <div style={{fontSize:12,color:C.sub,marginTop:3}}>Manage tabs, order & backups</div>
@@ -489,15 +489,18 @@ function Overview({projects,ideas,counters,plants,habits,health,journal,music,re
           ))}
         </div>
       )}
-      <Sec label="Projects" count={active.length} color={C.green} tab="Projects" lines={active.slice(0,2).map(p=>`${p.title} — ${p.steps.filter(s=>s.done).length}/${p.steps.length} steps`)}/>
-      <Sec label="Counters" count={counters.length} color={C.gold} tab="Counters" lines={counters.slice(0,2).map(c=>c.goal?`${c.name}: ${c.val}/${c.goal}`:`${c.name}: ${c.val}`)}/>
-      <Sec label="Ideas" count={ideas.length} color={C.lav} tab="Ideas" lines={ideas.slice(0,2).map(i=>`${i.tag} · ${i.text.slice(0,42)}${i.text.length>42?"…":""}`)}/>
-      <Sec label="Plants" count={plants.length} color={C.blue} tab="Plants" lines={plants.slice(0,2).map(p=>{const d=daysUntil(p.lastWatered,p.intervalDays);return`${p.emoji} ${p.name} — ${d<=0?"overdue":d===1?"water today":`water in ${d}d`}`;})}/>
-      <Sec label="Habits" count={`${habitsToday.length}/${habits.length}`} color={C.green} tab="Habits" lines={habits.slice(0,3).map(h=>`${h.history.includes(todayKey)?"✓":"○"} ${h.name}`)}/>
-      <Sec label="Journal" count={journal.length} color={C.peach} tab="Journal" lines={journal.slice(0,1).map(j=>`${j.date} — ${j.text.slice(0,50)}${j.text.length>50?"…":""}`)}/>
-      <Sec label="Health" count={health.length} color={C.rose} tab="Health" lines={health.slice(0,1).map(h=>`${h.date} · ${MOOD_EMOJI[h.mood]||""} ${h.mood} · ${ENERGY_EMOJI[h.energy]||""} ${h.energy}`)}/>
-      <Sec label="Restaurants" count={restaurants.length} color={C.peach} tab="Restaurants" lines={restaurants.slice(0,2).map(r=>`${"★".repeat(r.rating)} ${r.name}`)}/>
-      <Sec label="Music" count={music.length} color={C.gold} tab="Music" lines={music.slice(0,2).map(m=>`${"★".repeat(m.rating)} ${m.album} — ${m.artist}`)}/>
+      {visibleTabs.filter(t=>t!=="Overview").map(t=>{
+        if(t==="Projects")return<Sec key={t} label="Projects" count={active.length} color={C.green} tab="Projects" lines={active.slice(0,2).map(p=>`${p.title} — ${p.steps.filter(s=>s.done).length}/${p.steps.length} steps`)}/>;
+        if(t==="Counters")return<Sec key={t} label="Counters" count={counters.length} color={C.gold} tab="Counters" lines={counters.slice(0,2).map(c=>c.goal?`${c.name}: ${c.val}/${c.goal}`:`${c.name}: ${c.val}`)}/>;
+        if(t==="Ideas")return<Sec key={t} label="Ideas" count={ideas.length} color={C.lav} tab="Ideas" lines={ideas.slice(0,2).map(i=>`${i.tag} · ${i.text.slice(0,42)}${i.text.length>42?"…":""}`)}/>;
+        if(t==="Plants")return<Sec key={t} label="Plants" count={plants.length} color={C.blue} tab="Plants" lines={plants.slice(0,2).map(p=>{const d=daysUntil(p.lastWatered,p.intervalDays);return`${p.emoji} ${p.name} — ${d<=0?"overdue":d===1?"water today":`water in ${d}d`}`;})}/>;
+        if(t==="Habits")return<Sec key={t} label="Habits" count={`${habitsToday.length}/${habits.length}`} color={C.green} tab="Habits" lines={habits.slice(0,3).map(h=>`${h.history.includes(todayKey)?"✓":"○"} ${h.name}`)}/>;
+        if(t==="Journal")return<Sec key={t} label="Journal" count={journal.length} color={C.peach} tab="Journal" lines={journal.slice(0,1).map(j=>`${j.date} — ${j.text.slice(0,50)}${j.text.length>50?"…":""}`)}/>;
+        if(t==="Health")return<Sec key={t} label="Health" count={health.length} color={C.rose} tab="Health" lines={health.slice(0,1).map(h=>`${h.date} · ${MOOD_EMOJI[h.mood]||""} ${h.mood} · ${ENERGY_EMOJI[h.energy]||""} ${h.energy}`)}/>;
+        if(t==="Restaurants")return<Sec key={t} label="Restaurants" count={restaurants.length} color={C.peach} tab="Restaurants" lines={restaurants.slice(0,2).map(r=>`${"★".repeat(r.rating)} ${r.name}`)}/>;
+        if(t==="Music")return<Sec key={t} label="Music" count={music.length} color={C.gold} tab="Music" lines={music.slice(0,2).map(m=>`${"★".repeat(m.rating)} ${m.album} — ${m.artist}`)}/>;
+        return null;
+      })}
     </>
   );
 }
@@ -734,12 +737,12 @@ function Ideas({ideas,setIdeas,tags,setTags}){
 // ─── PLANTS ───────────────────────────────────────────────────────
 function Plants({plants,setPlants}){
   const [name,setName]=useState("");
-  const [emoji,setEmoji]=useState("🌿");
+  const [emoji,setEmoji]=useState("");
   const [room,setRoom]=useState("");
   const [interval,setPi]=useState("7");
   function water(id){setPlants(ps=>ps.map(p=>p.id!==id?p:{...p,lastWatered:0}));}
   function del(id){setPlants(ps=>ps.filter(p=>p.id!==id));}
-  function add(){if(!name.trim())return;setPlants(prev=>[...prev,{id:Date.now(),name:name.trim(),emoji:emoji||"🌿",room:room.trim()||"Other",lastWatered:0,intervalDays:parseInt(interval)||7}]);setName("");setEmoji("🌿");setRoom("");setPi("7");}
+  function add(){if(!name.trim())return;setPlants(prev=>[...prev,{id:Date.now(),name:name.trim(),emoji:emoji||"",room:room.trim()||"Other",lastWatered:0,intervalDays:parseInt(interval)||7}]);setName("");setEmoji("");setRoom("");setPi("7");}
   const rooms=[...new Set(plants.map(p=>p.room||"Other"))];
   return(
     <>
@@ -770,7 +773,7 @@ function Plants({plants,setPlants}){
       <div className="slabel">Add a plant</div>
       <div className="form-card">
         <div className="gap8" style={{marginBottom:8}}>
-          <input className="inp" style={{maxWidth:64,flex:"0 0 64px"}} placeholder="🪴" value={emoji} onChange={e=>setEmoji(e.target.value)}/>
+          <input className="inp" style={{maxWidth:64,flex:"0 0 64px"}} placeholder="emoji" value={emoji} onChange={e=>setEmoji(e.target.value)}/>
           <input className="inp" placeholder="Plant name" value={name} onChange={e=>setName(e.target.value)}/>
         </div>
         <input className="inp" style={{marginBottom:8}} placeholder="Room (e.g. Living Room)" value={room} onChange={e=>setRoom(e.target.value)}/>
